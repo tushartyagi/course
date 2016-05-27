@@ -155,7 +155,13 @@ filter _ Nil = Nil
 filter p (x :. xs)
   | p x = x :. filter p xs
   | otherwise = filter p xs
-  
+
+-- Alternative
+filter' p xs = foldRight check Nil xs
+  where check x acc
+          | p x = x :. acc
+          | otherwise = acc
+    
 -- | Append two lists to a new list.
 --
 -- >>> (1 :. 2 :. 3 :. Nil) ++ (4 :. 5 :. 6 :. Nil)
