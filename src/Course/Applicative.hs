@@ -61,9 +61,8 @@ infixl 4 <*>
   (a -> b)
   -> f a
   -> f b
-(<$>) =
-  error "todo: Course.Applicative#(<$>)"
-
+(<$>) f fa = pure f <*> fa 
+  
 -- | Insert into Id.
 --
 -- prop> pure x == Id x
@@ -74,14 +73,12 @@ instance Applicative Id where
   pure ::
     a
     -> Id a
-  pure =
-    error "todo: Course.Applicative pure#instance Id"
+  pure = Id
   (<*>) :: 
     Id (a -> b)
     -> Id a
     -> Id b
-  (<*>) =
-    error "todo: Course.Applicative (<*>)#instance Id"
+  (<*>) (Id f) (Id a) = Id (f a)
 
 -- | Insert into a List.
 --
@@ -93,15 +90,15 @@ instance Applicative List where
   pure ::
     a
     -> List a
-  pure =
-    error "todo: Course.Applicative pure#instance List"
+  pure x = (x :. Nil)
   (<*>) ::
     List (a -> b)
     -> List a
     -> List b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance List"
-
+  Nil <*> _ = Nil
+  _ <*> Nil = Nil
+  (<*>) (f :. fs) as = (map f as) ++ (fs <*> as)
+    
 -- | Insert into an Optional.
 --
 -- prop> pure x == Full x
@@ -118,14 +115,14 @@ instance Applicative Optional where
   pure ::
     a
     -> Optional a
-  pure =
-    error "todo: Course.Applicative pure#instance Optional"
+  pure = Full
   (<*>) ::
     Optional (a -> b)
     -> Optional a
     -> Optional b
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance Optional"
+  Empty <*> _ = Empty
+  _ <*> Empty = Empty
+  (Full f) <*> (Full a) = pure (f a)
 
 -- | Insert into a constant function.
 --
@@ -149,15 +146,18 @@ instance Applicative ((->) t) where
   pure ::
     a
     -> ((->) t a)
-  pure =
-    error "todo: Course.Applicative pure#((->) t)"
+  pure = const
+  -- this is: (t -> (a -> b)) -> (t -> a) -> (t -> b)
+  -- Putting 2 functions as arguments of applicative.
+  -- The value of using the second function is applied to
+  -- the first function and the input parameter.
+  -- This works if the first function is binary, and the
+  -- second function is partially applied binary. 
   (<*>) ::
     ((->) t (a -> b))
     -> ((->) t a)
     -> ((->) t b)
-  (<*>) =
-    error "todo: Course.Apply (<*>)#instance ((->) t)"
-
+  (<*>) f1 f2 = \v -> f1 v (f2 v)
 
 -- | Apply a binary function in the environment.
 --
@@ -184,9 +184,8 @@ lift2 ::
   -> f a
   -> f b
   -> f c
-lift2 =
-  error "todo: Course.Applicative#lift2"
-
+lift2 f fa fb = f <$> fa <*> fb -- Or pure f <*> fa <*> fb
+  
 -- | Apply a ternary function in the environment.
 --
 -- >>> lift3 (\a b c -> a + b + c) (Id 7) (Id 8) (Id 9)
@@ -216,8 +215,7 @@ lift3 ::
   -> f b
   -> f c
   -> f d
-lift3 =
-  error "todo: Course.Applicative#lift3"
+lift3 f fa fb fc = f <$> fa <*> fb <*> fc
 
 -- | Apply a quaternary function in the environment.
 --
@@ -249,8 +247,7 @@ lift4 ::
   -> f c
   -> f d
   -> f e
-lift4 =
-  error "todo: Course.Applicative#lift4"
+lift4 f fa fb fc fd = f <$> fa <*> fb <*> fc <*> fd
 
 -- | Apply, discarding the value of the first argument.
 -- Pronounced, right apply.
@@ -275,8 +272,7 @@ lift4 =
   f a
   -> f b
   -> f b
-(*>) =
-  error "todo: Course.Applicative#(*>)"
+(*>) = lift2 (flip const)
 
 -- | Apply, discarding the value of the second argument.
 -- Pronounced, left apply.
@@ -301,8 +297,7 @@ lift4 =
   f b
   -> f a
   -> f b
-(<*) =
-  error "todo: Course.Applicative#(<*)"
+(<*) = lift2 const
 
 -- | Sequences a list of structures to a structure of list.
 --
@@ -324,8 +319,15 @@ sequence ::
   Applicative f =>
   List (f a)
   -> f (List a)
-sequence =
-  error "todo: Course.Applicative#sequence"
+sequence Nil = pure Nil
+-- Just as (:) 7 [18] gives [7, 18]
+-- lift2 (:) (f 7) (f [18]) will give f [7, 18]
+-- For a long time, I was thinking this to be:
+-- lift2 (:) (f 7) ([f 18]) will give f [7, 18] or something else,
+-- which is wrong because the container used in the lift2 has to come
+-- on both the 1st and 2nd param entirely. 7 and [] become f 7 and `f []`
+-- instead of `f 7` and `[f _]`
+sequence (x :. xs) = lift2 (:.) x (sequence xs)
 
 -- | Replicate an effect a given number of times.
 --
@@ -348,9 +350,10 @@ replicateA ::
   Int
   -> f a
   -> f (List a)
-replicateA =
-  error "todo: Course.Applicative#replicateA"
-
+replicateA n fa = sequence $ replicate n fa
+  where replicate 0 _ = Nil
+        replicate n fa = fa :. replicate (n - 1) fa
+        
 -- | Filter a list with a predicate that produces an effect.
 --
 -- >>> filtering (Id . even) (4 :. 5 :. 6 :. Nil)
