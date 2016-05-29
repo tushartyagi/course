@@ -379,9 +379,17 @@ filtering ::
   (a -> f Bool)
   -> List a
   -> f (List a)
-filtering =
-  error "todo: Course.Applicative#filtering"
+filtering f xs = undefined -- sequence $ findTrues f xs
 
+findTrues _ Nil = Nil
+findTrues f (x :. xs)          
+  | pure True == f x = pure x :. findTrues f xs
+  | otherwise = findTrues f xs
+            
+blah f (x :. xs)
+  | pure True == f x = x
+  | otherwise = x * 12
+                   
 -----------------------
 -- SUPPORT LIBRARIES --
 -----------------------
