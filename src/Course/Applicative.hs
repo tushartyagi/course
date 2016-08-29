@@ -379,17 +379,9 @@ filtering ::
   (a -> f Bool)
   -> List a
   -> f (List a)
-filtering f xs = undefined -- sequence $ findTrues f xs
-
-findTrues _ Nil = Nil
-findTrues f (x :. xs)          
-  | pure True == f x = pure x :. findTrues f xs
-  | otherwise = findTrues f xs
-            
-blah f (x :. xs)
-  | pure True == f x = x
-  | otherwise = x * 12
-                   
+filtering p =  
+  foldRight (\a -> lift2 (\b -> if b then (a:.) else id) (p a)) (pure Nil)
+                  
 -----------------------
 -- SUPPORT LIBRARIES --
 -----------------------
